@@ -1,0 +1,683 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rental Business Tracker</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Times New Roman", serif;
+  background: white;
+  color: #222;
+}
+
+header {
+  background: #087f5b;
+  color: white;
+  padding: 18px;
+}
+
+header h2 { margin: 0; }
+
+nav {
+  display: flex;
+  gap: 6px;
+  padding: 10px;
+  overflow-x: auto;
+  border-bottom: 1px solid #ddd;
+}
+
+nav button {
+  padding: 9px 13px;
+  background: white;
+  border: 1px solid #087f5b;
+  color: #087f5b;
+  border-radius: 4px;
+  white-space: nowrap;
+  font-family: inherit;
+  font-size: 16px;
+}
+
+nav button.active {
+  background: #087f5b;
+  color: white;
+}
+
+main {
+  max-width: 1000px;
+  margin: auto;
+  padding: 15px;
+}
+
+.section { display: none; }
+.section.active { display: block; }
+
+h3 { color: #087f5b; }
+
+input, select, textarea {
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 16px;
+  background: white;
+}
+
+textarea { min-height: 65px; }
+
+label { display: block; }
+
+form {
+  border: 1px solid #ddd;
+  padding: 14px;
+  margin-bottom: 20px;
+  border-radius: 5px;
+}
+
+button { cursor: pointer; font-family: inherit; font-size: 16px; }
+
+.primary {
+  background: #087f5b;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 4px;
+}
+
+.delete {
+  background: white;
+  color: #b42318;
+  border: 1px solid #b42318;
+  padding: 6px 9px;
+  border-radius: 4px;
+}
+
+.edit {
+  background: white;
+  color: #087f5b;
+  border: 1px solid #087f5b;
+  padding: 6px 9px;
+  border-radius: 4px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.card {
+  border: 1px solid #ddd;
+  border-left: 4px solid #087f5b;
+  padding: 12px;
+}
+
+.card small { display: block; color: #555; }
+.card strong { display: block; margin-top: 7px; font-size: 20px; }
+
+.table-wrap { overflow-x: auto; }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 550px;
+  margin: 12px 0;
+}
+
+th, td {
+  border: 1px solid #ddd;
+  padding: 9px;
+  text-align: left;
+}
+
+th {
+  background: #e8f4ef;
+  color: #075c43;
+}
+
+.notice {
+  background: #f1f8f5;
+  padding: 12px;
+  border-left: 4px solid #087f5b;
+  margin: 12px 0;
+}
+
+@media(max-width: 600px) {
+  main { padding: 12px; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h2>Rental Business Tracker</h2>
+  <p>Manage your tenants, collections, expenses, and profit.</p>
+</header>
+
+<nav>
+  <button class="active" onclick="openTab('dashboard',this)">Dashboard</button>
+  <button onclick="openTab('tenants',this)">Tenants</button>
+  <button onclick="openTab('collections',this)">Collections</button>
+  <button onclick="openTab('owners',this)">Owner Payments</button>
+  <button onclick="openTab('expenses',this)">Expenses</button>
+  <button onclick="openTab('taxes',this)">BIR Taxes</button>
+  <button onclick="openTab('reports',this)">Reports</button>
+  <button onclick="openTab('backup',this)">Backup</button>
+</nav>
+
+<main>
+
+<!-- DASHBOARD -->
+<section id="dashboard" class="section active">
+  <h3>Dashboard</h3>
+
+  <label>Select Month</label>
+  <input type="month" id="dashMonth">
+
+  <div class="cards">
+    <div class="card"><small>Total Tenants</small><strong id="totalTenants">0</strong></div>
+    <div class="card"><small>Rental Collections</small><strong id="totalCollections">₱0</strong></div>
+    <div class="card"><small>Owner Payments</small><strong id="totalOwners">₱0</strong></div>
+    <div class="card"><small>Business Earnings</small><strong id="totalEarnings">₱0</strong></div>
+    <div class="card"><small>Expenses</small><strong id="totalExpenses">₱0</strong></div>
+    <div class="card"><small>BIR Taxes Paid</small><strong id="totalTaxes">₱0</strong></div>
+    <div class="card"><small>Net Profit</small><strong id="totalProfit">₱0</strong></div>
+  </div>
+
+  <div class="notice">
+    Business Earnings = Collections − Owner Payments.<br>
+    Net Profit = Business Earnings − Expenses − Taxes Paid.
+  </div>
+</section>
+
+<!-- TENANTS -->
+<section id="tenants" class="section">
+  <h3>Tenant Information</h3>
+
+  <form id="tenantForm">
+    <input type="hidden" name="id">
+
+    <label>Tenant Full Name</label>
+    <input name="name" required placeholder="Full name">
+
+    <label>Contact Number</label>
+    <input name="phone" type="tel" placeholder="09XXXXXXXXX">
+
+    <label>Address</label>
+    <textarea name="address" placeholder="Tenant's address"></textarea>
+
+    <label>Rental Unit / Property</label>
+    <input name="unit" required placeholder="Example: Unit 1">
+
+    <label>Monthly Rent (₱)</label>
+    <input name="rent" type="number" min="0" step="0.01" required>
+
+    <label>Move-in Date</label>
+    <input name="moveIn" type="date">
+
+    <label>Lease End Date</label>
+    <input name="leaseEnd" type="date">
+
+    <label>Tenant Status</label>
+    <select name="status">
+      <option>Active</option>
+      <option>Moved Out</option>
+    </select>
+
+    <label>Additional Notes</label>
+    <textarea name="notes" placeholder="Other information"></textarea>
+
+    <button class="primary" type="submit" id="tenantSubmit">Add Tenant</button>
+    <button type="button" class="edit" onclick="resetTenant()">Clear Form</button>
+  </form>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th><th>Contact</th><th>Unit</th><th>Monthly Rent</th><th>Status</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tenantList"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- COLLECTIONS -->
+<section id="collections" class="section">
+  <h3>Rental Collections</h3>
+
+  <form id="collectionForm">
+    <label>Tenant</label>
+    <select name="tenantId" class="tenantOptions" required></select>
+
+    <label>Payment Date</label>
+    <input type="date" name="date" required>
+
+    <label>Amount Paid (₱)</label>
+    <input type="number" name="amount" min="0" step="0.01" required>
+
+    <label>Month Covered</label>
+    <input type="month" name="covered" required>
+
+    <label>Status</label>
+    <select name="status">
+      <option>Paid</option>
+      <option>Pending</option>
+    </select>
+
+    <button class="primary">Add Collection</button>
+  </form>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tenant</th><th>Date</th><th>Month Covered</th><th>Amount</th><th>Status</th><th></th></tr></thead>
+      <tbody id="collectionList"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- OWNER PAYMENTS -->
+<section id="owners" class="section">
+  <h3>Payments to Property Owner</h3>
+
+  <form id="ownerForm">
+    <label>Property Owner</label>
+    <input name="name" required placeholder="Owner name">
+
+    <label>Payment Date</label>
+    <input type="date" name="date" required>
+
+    <label>Amount (₱)</label>
+    <input type="number" name="amount" min="0" step="0.01" required>
+
+    <label>Payment Status</label>
+    <select name="status"><option>Paid</option><option>Pending</option></select>
+
+    <button class="primary">Add Payment</button>
+  </form>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Owner</th><th>Date</th><th>Amount</th><th>Status</th><th></th></tr></thead>
+      <tbody id="ownerList"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- EXPENSES -->
+<section id="expenses" class="section">
+  <h3>Business Expenses and Permits</h3>
+
+  <form id="expenseForm">
+    <label>Description</label>
+    <input name="description" required placeholder="Example: Permit renewal">
+
+    <label>Category</label>
+    <select name="category">
+      <option>Business Expense</option>
+      <option>Permits and Licenses</option>
+      <option>Maintenance</option>
+      <option>Utilities</option>
+      <option>Transportation</option>
+      <option>Other</option>
+    </select>
+
+    <label>Date</label>
+    <input type="date" name="date" required>
+
+    <label>Amount (₱)</label>
+    <input type="number" name="amount" min="0" step="0.01" required>
+
+    <button class="primary">Add Expense</button>
+  </form>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Description</th><th>Category</th><th>Date</th><th>Amount</th><th></th></tr></thead>
+      <tbody id="expenseList"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- BIR TAXES -->
+<section id="taxes" class="section">
+  <h3>BIR Taxes and Deadlines</h3>
+
+  <div class="notice">
+    Enter the tax type and deadline based on your BIR registration and filing obligations. This tracker does not automatically determine tax deadlines or tax amounts.
+  </div>
+
+  <form id="taxForm">
+    <label>Tax Type</label>
+    <input name="type" required placeholder="Example: Percentage Tax">
+
+    <label>Amount (₱)</label>
+    <input type="number" name="amount" min="0" step="0.01" required>
+
+    <label>Due Date</label>
+    <input type="date" name="dueDate" required>
+
+    <label>Status</label>
+    <select name="status"><option>Pending</option><option>Paid</option></select>
+
+    <label>Date Paid</label>
+    <input type="date" name="paidDate">
+
+    <button class="primary">Add Tax Record</button>
+  </form>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tax Type</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Date Paid</th><th></th></tr></thead>
+      <tbody id="taxList"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- REPORTS -->
+<section id="reports" class="section">
+  <h3>Monthly Income and Profit Report</h3>
+
+  <label>Select Month</label>
+  <input type="month" id="reportMonth">
+
+  <div class="cards">
+    <div class="card"><small>Collections</small><strong id="rCollections">₱0</strong></div>
+    <div class="card"><small>Owner Payments</small><strong id="rOwners">₱0</strong></div>
+    <div class="card"><small>Business Earnings</small><strong id="rEarnings">₱0</strong></div>
+    <div class="card"><small>Expenses</small><strong id="rExpenses">₱0</strong></div>
+    <div class="card"><small>Taxes Paid</small><strong id="rTaxes">₱0</strong></div>
+    <div class="card"><small>Net Profit</small><strong id="rProfit">₱0</strong></div>
+  </div>
+
+  <button class="primary" onclick="window.print()">Print Report</button>
+</section>
+
+<!-- BACKUP -->
+<section id="backup" class="section">
+  <h3>Backup and Restore</h3>
+  <p>Download a copy of your business records or restore a previous backup.</p>
+
+  <button class="primary" onclick="backup()">Download Backup</button>
+  <br><br>
+  <input type="file" accept=".json" onchange="restore(event)">
+
+  <div class="notice">
+    Records are saved in this browser on this device. Download backups regularly to avoid losing your information.
+  </div>
+</section>
+
+</main>
+
+<script>
+const KEY = "rentalTrackerSimpleV2";
+
+let db;
+try {
+  db = JSON.parse(localStorage.getItem(KEY)) || {};
+} catch {
+  db = {};
+}
+
+["tenants","collections","owners","expenses","taxes"].forEach(k => {
+  if (!Array.isArray(db[k])) db[k] = [];
+});
+
+function save() {
+  localStorage.setItem(KEY, JSON.stringify(db));
+  render();
+}
+
+function id() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function peso(n) {
+  return Number(n || 0).toLocaleString("en-PH", {
+    style: "currency", currency: "PHP"
+  });
+}
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;",
+    '"':"&quot;", "'":"&#39;"
+  })[c]);
+}
+
+function openTab(name, btn) {
+  document.querySelectorAll(".section").forEach(x => x.classList.remove("active"));
+  document.querySelectorAll("nav button").forEach(x => x.classList.remove("active"));
+  document.getElementById(name).classList.add("active");
+  btn.classList.add("active");
+  render();
+}
+
+function resetTenant() {
+  document.getElementById("tenantForm").reset();
+  document.querySelector("#tenantForm [name=id]").value = "";
+  document.getElementById("tenantSubmit").textContent = "Add Tenant";
+}
+
+function deleteRecord(type, recordId) {
+  if (!confirm("Delete this record?")) return;
+  db[type] = db[type].filter(x => x.id !== recordId);
+  save();
+}
+
+function editTenant(recordId) {
+  const tenant = db.tenants.find(x => x.id === recordId);
+  if (!tenant) return;
+
+  const form = document.getElementById("tenantForm");
+  Object.keys(tenant).forEach(key => {
+    if (form.elements[key]) form.elements[key].value = tenant[key];
+  });
+
+  document.getElementById("tenantSubmit").textContent = "Save Changes";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+document.getElementById("tenantForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const form = e.target;
+  const item = Object.fromEntries(new FormData(form));
+  const existing = db.tenants.find(x => x.id === item.id);
+
+  if (existing) {
+    Object.assign(existing, item);
+  } else {
+    item.id = id();
+    db.tenants.push(item);
+  }
+
+  resetTenant();
+  save();
+});
+
+function addForm(formId, type) {
+  document.getElementById(formId).addEventListener("submit", e => {
+    e.preventDefault();
+    const item = Object.fromEntries(new FormData(e.target));
+    item.id = id();
+
+    if (item.amount !== undefined) item.amount = Number(item.amount);
+
+    db[type].push(item);
+    e.target.reset();
+    save();
+  });
+}
+
+addForm("collectionForm", "collections");
+addForm("ownerForm", "owners");
+addForm("expenseForm", "expenses");
+addForm("taxForm", "taxes");
+
+function tenantName(tenantId) {
+  return db.tenants.find(x => x.id === tenantId)?.name || "Tenant removed";
+}
+
+function draw(type, elementId, columns) {
+  document.getElementById(elementId).innerHTML =
+    db[type].map(x => `
+      <tr>
+        ${columns.map(fn => `<td>${esc(fn(x))}</td>`).join("")}
+        <td><button class="delete" onclick="deleteRecord('${type}','${x.id}')">Delete</button></td>
+      </tr>
+    `).join("") || `<tr><td colspan="${columns.length+1}">No records yet.</td></tr>`;
+}
+
+function monthTotals(month) {
+  const collections = db.collections.filter(x =>
+    x.covered === month && x.status === "Paid"
+  ).reduce((a,x) => a + Number(x.amount), 0);
+
+  const owners = db.owners.filter(x =>
+    x.date?.slice(0,7) === month && x.status === "Paid"
+  ).reduce((a,x) => a + Number(x.amount), 0);
+
+  const expenses = db.expenses.filter(x =>
+    x.date?.slice(0,7) === month
+  ).reduce((a,x) => a + Number(x.amount), 0);
+
+  const taxes = db.taxes.filter(x =>
+    x.status === "Paid" && x.paidDate?.slice(0,7) === month
+  ).reduce((a,x) => a + Number(x.amount), 0);
+
+  const earnings = collections - owners;
+
+  return {
+    collections, owners, expenses, taxes,
+    earnings, profit: earnings - expenses - taxes
+  };
+}
+
+function setMoney(elementId, value) {
+  document.getElementById(elementId).textContent = peso(value);
+}
+
+function updateSummary(month, prefix) {
+  const t = monthTotals(month);
+  setMoney(prefix+"Collections", t.collections);
+  setMoney(prefix+"Owners", t.owners);
+  setMoney(prefix+"Earnings", t.earnings);
+  setMoney(prefix+"Expenses", t.expenses);
+  setMoney(prefix+"Taxes", t.taxes);
+  setMoney(prefix+"Profit", t.profit);
+}
+
+function render() {
+  draw("tenants", "tenantList", [
+    x => x.name,
+    x => x.phone,
+    x => x.unit,
+    x => peso(x.rent),
+    x => x.status
+  ]);
+
+  document.querySelectorAll("#tenantList tr").forEach((row, index) => {
+    const tenant = db.tenants[index];
+    if (!tenant) return;
+    row.lastElementChild.innerHTML = `
+      <button class="edit" onclick="editTenant('${tenant.id}')">Edit</button>
+      <button class="delete" onclick="deleteRecord('tenants','${tenant.id}')">Delete</button>
+    `;
+  });
+
+  document.querySelectorAll(".tenantOptions").forEach(select => {
+    const oldValue = select.value;
+    select.innerHTML = `<option value="">Select Tenant</option>` +
+      db.tenants.filter(t => t.status === "Active").map(t =>
+        `<option value="${t.id}">${esc(t.name)} - ${esc(t.unit)}</option>`
+      ).join("");
+    if ([...select.options].some(o => o.value === oldValue)) select.value = oldValue;
+  });
+
+  draw("collections", "collectionList", [
+    x => tenantName(x.tenantId),
+    x => x.date,
+    x => x.covered,
+    x => peso(x.amount),
+    x => x.status
+  ]);
+
+  draw("owners", "ownerList", [
+    x => x.name, x => x.date, x => peso(x.amount), x => x.status
+  ]);
+
+  draw("expenses", "expenseList", [
+    x => x.description, x => x.category, x => x.date, x => peso(x.amount)
+  ]);
+
+  draw("taxes", "taxList", [
+    x => x.type, x => peso(x.amount), x => x.dueDate,
+    x => x.status, x => x.paidDate || "-"
+  ]);
+
+  document.getElementById("totalTenants").textContent =
+    db.tenants.filter(t => t.status === "Active").length;
+
+  updateSummary(document.getElementById("dashMonth").value, "total");
+  updateSummary(document.getElementById("reportMonth").value, "r");
+}
+
+document.getElementById("dashMonth").addEventListener("change", render);
+document.getElementById("reportMonth").addEventListener("change", render);
+
+function backup() {
+  const blob = new Blob([JSON.stringify(db, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "rental-business-backup.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function restore(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const restored = JSON.parse(reader.result);
+      const keys = ["tenants","collections","owners","expenses","taxes"];
+
+      if (!keys.every(k => Array.isArray(restored[k]))) {
+        throw new Error("Invalid backup");
+      }
+
+      if (!confirm("This will replace your current records. Continue?")) return;
+
+      db = restored;
+      save();
+      alert("Backup restored!");
+    } catch {
+      alert("Invalid backup file.");
+    }
+    event.target.value = "";
+  };
+  reader.readAsText(file);
+}
+
+const month = new Date().toISOString().slice(0,7);
+document.getElementById("dashMonth").value = month;
+document.getElementById("reportMonth").value = month;
+
+render();
+</script>
+
+</body>
+</html>
