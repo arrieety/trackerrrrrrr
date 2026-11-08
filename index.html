@@ -154,6 +154,19 @@ th {
   main { padding: 12px; }
 }
 </style>
+
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#087f5b">
+<link rel="apple-touch-icon" href="./icon-192.png">
+
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js")
+      .catch(error => console.log("App offline setup:", error));
+  });
+}
+</script>
 </head>
 
 <body>
