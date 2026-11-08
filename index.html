@@ -1,0 +1,522 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#ffffff">
+<title>Lakbay - Your Map</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f5f7fa;color:#202124}
+header{height:60px;background:white;display:flex;align-items:center;gap:10px;padding:0 15px;box-shadow:0 1px 5px #0002;position:relative;z-index:1000}
+.logo{font-size:21px;font-weight:800;color:#16845b}
+.logo span{color:#4285f4}
+#status{font-size:11px;color:#666;margin-left:auto}
+main{display:flex;height:calc(100dvh - 60px)}
+aside{width:340px;max-width:100%;background:white;padding:14px;overflow:auto;z-index:500}
+#map{flex:1;min-width:0;height:100%;background:#e8edf0}
+.searchrow{display:flex;gap:6px}
+input,select,button{font:inherit;border-radius:10px;padding:11px;border:1px solid #ddd}
+input{width:100%;min-width:0}
+button{background:#16845b;color:white;border:0;cursor:pointer;font-weight:600}
+button.secondary{background:#edf3f0;color:#176a4c}
+button.blue{background:#4285f4}
+button.red{background:#d94b4b}
+button:disabled{opacity:.5}
+.section{border-top:1px solid #eee;margin-top:16px;padding-top:13px}
+h3{font-size:15px;margin:0 0 10px}
+p{font-size:13px;line-height:1.5;color:#60666d}
+.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.actions button{flex:1}
+.small{font-size:12px;color:#777}
+#results{font-size:13px}
+.result{padding:9px;border-bottom:1px solid #eee;cursor:pointer}
+.result:hover{background:#f3f7f5}
+#history{font-size:13px}
+.walkstats{display:flex;gap:8px}
+.stat{background:#f1f6f3;border-radius:10px;padding:10px;flex:1;text-align:center}
+.stat strong{display:block;font-size:20px;color:#16845b}
+.stat span{font-size:11px;color:#666}
+.leaflet-container{font-family:Arial,sans-serif}
+.leaflet-control-attribution{font-size:9px!important}
+@media(max-width:700px){
+ main{flex-direction:column-reverse;height:calc(100dvh - 60px)}
+ #map{flex:none;height:53%;width:100%}
+ aside{width:100%;height:47%;padding:12px}
+ header{height:54px}
+}
+</style>
+</head>
+
+<body>
+<header>
+  <div class="logo">Lakbay<span>+</span></div>
+  <div id="status">Loading map…</div>
+</header>
+
+<main>
+<aside>
+  <h3>Find a place</h3>
+  <div class="searchrow">
+    <input id="search" placeholder="Search a place in the Philippines">
+    <button onclick="searchPlace()">Go</button>
+  </div>
+  <div id="results"></div>
+
+  <div class="section">
+    <h3>Your location</h3>
+    <p id="locationText">Your location has not been found yet.</p>
+    <div class="actions">
+      <button onclick="locateMe()">Locate me</button>
+      <button class="secondary" onclick="shareLocation()">Share location</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Get directions</h3>
+    <input id="destination" placeholder="Where do you want to go?">
+    <select id="travelMode" style="width:100%;margin-top:7px">
+      <option value="driving">Driving</option>
+      <option value="walking">Walking</option>
+    </select>
+    <div class="actions">
+      <button class="blue" onclick="getDirections()">Find route</button>
+      <button class="secondary" onclick="clearRoute()">Clear</button>
+    </div>
+    <p id="routeInfo">Search for a destination to get directions.</p>
+  </div>
+
+  <div class="section">
+    <h3>Walking tracker</h3>
+    <div class="walkstats">
+      <div class="stat"><strong id="steps">0</strong><span>Estimated steps</span></div>
+      <div class="stat"><strong id="distance">0 m</strong><span>Distance</span></div>
+    </div>
+    <div class="actions">
+      <button onclick="startWalk()">Start</button>
+      <button class="red" onclick="stopWalk()">Stop</button>
+    </div>
+    <div class="actions">
+      <button class="secondary" onclick="showReverseRoute()">Reverse route</button>
+      <button class="secondary" onclick="clearWalk()">Reset</button>
+    </div>
+    <p id="walkStatus">Start walking to record your GPS route.</p>
+  </div>
+
+  <div class="section">
+    <h3>Walking history</h3>
+    <div id="history">No saved walks yet.</div>
+  </div>
+
+  <div class="section">
+    <h3>Transportation help</h3>
+    <select id="question" style="width:100%">
+      <option value="jeep">How do I ride a jeepney?</option>
+      <option value="bus">How do I ride a bus?</option>
+      <option value="tricycle">How do I ride a tricycle?</option>
+      <option value="fare">How do I check fares?</option>
+      <option value="safety">Travel safety tips</option>
+      <option value="commute">How do I plan a commute?</option>
+    </select>
+    <button style="width:100%;margin-top:7px" onclick="answerQuestion()">Ask Lakbay</button>
+    <p id="answer">Choose a question to get transportation guidance.</p>
+    <p class="small">Guidance is general and offline. Confirm current routes and fares locally.</p>
+  </div>
+
+  <div class="section">
+    <p class="small">Map data © OpenStreetMap contributors, CARTO and Esri. Map images and online directions require internet.</p>
+  </div>
+</aside>
+
+<div id="map"></div>
+</main>
+
+<script>
+/* Load Leaflet from either CDN */
+function loadLeaflet(urls, index=0){
+  return new Promise((resolve,reject)=>{
+    if(window.L){resolve();return}
+    if(index>=urls.length){reject(new Error("Map library could not load"));return}
+    const script=document.createElement("script");
+    script.src=urls[index];
+    script.onload=()=>window.L?resolve():loadLeaflet(urls,index+1).then(resolve).catch(reject);
+    script.onerror=()=>loadLeaflet(urls,index+1).then(resolve).catch(reject);
+    document.head.appendChild(script);
+  });
+}
+
+let map, userMarker, routeLine, walkLine, reverseLine;
+let currentPosition=null;
+let watchId=null;
+let walking=false;
+let walkPoints=[];
+let stepCount=0;
+let lastMotion=0;
+let lastStepTime=0;
+let tileLayer=null;
+let providerIndex=0;
+let providerTimer=null;
+let tileErrors=0;
+
+const providers=[
+  {
+    name:"OpenStreetMap",
+    url:"https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    options:{maxZoom:19,attribution:'© OpenStreetMap contributors'}
+  },
+  {
+    name:"Esri",
+    url:"https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+    options:{maxZoom:19,attribution:'Tiles © Esri'}
+  },
+  {
+    name:"CARTO",
+    url:"https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    options:{maxZoom:20,subdomains:"abcd",attribution:'© OpenStreetMap © CARTO'}
+  }
+];
+
+function setStatus(message){
+  document.getElementById("status").textContent=message;
+}
+
+function switchProvider(){
+  if(providerIndex>=providers.length){
+    setStatus("Map tiles blocked. Check your connection.");
+    return;
+  }
+  if(tileLayer) map.removeLayer(tileLayer);
+  clearTimeout(providerTimer);
+  tileErrors=0;
+
+  const provider=providers[providerIndex];
+  setStatus("Loading "+provider.name+" map…");
+
+  tileLayer=L.tileLayer(provider.url,provider.options);
+  tileLayer.on("tileerror",()=>{
+    tileErrors++;
+    if(tileErrors>=4){
+      providerIndex++;
+      switchProvider();
+    }
+  });
+  tileLayer.on("load",()=>{
+    setStatus(provider.name+" map loaded");
+  });
+  tileLayer.addTo(map);
+
+  providerTimer=setTimeout(()=>{
+    if(tileErrors>=4){
+      providerIndex++;
+      switchProvider();
+    }
+  },9000);
+}
+
+function initMap(){
+  map=L.map("map",{zoomControl:false}).setView([12.8797,121.7740],6);
+  L.control.zoom({position:"bottomright"}).addTo(map);
+  switchProvider();
+  setTimeout(()=>map.invalidateSize(),400);
+  setTimeout(()=>map.invalidateSize(),1200);
+}
+
+loadLeaflet([
+  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+  "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+]).then(initMap).catch(()=>{
+  setStatus("Map library blocked. Check your internet.");
+  document.getElementById("map").innerHTML=
+    "<p style='padding:20px'>The map library could not load. Try another internet connection or disable content blocking.</p>";
+});
+
+/* Search places using OpenStreetMap Nominatim */
+async function searchPlace(){
+  const query=document.getElementById("search").value.trim();
+  if(!query)return alert("Enter a place first.");
+  const results=document.getElementById("results");
+  results.textContent="Searching…";
+  try{
+    const url="https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=ph&q="+encodeURIComponent(query);
+    const response=await fetch(url);
+    if(!response.ok)throw new Error("Search unavailable");
+    const data=await response.json();
+    results.innerHTML="";
+    if(!data.length){results.textContent="No places found.";return}
+    data.forEach(place=>{
+      const item=document.createElement("div");
+      item.className="result";
+      item.textContent=place.display_name;
+      item.onclick=()=>{
+        const lat=Number(place.lat),lon=Number(place.lon);
+        map.setView([lat,lon],16);
+        L.marker([lat,lon]).addTo(map).bindPopup(place.display_name).openPopup();
+      };
+      results.appendChild(item);
+    });
+  }catch(error){
+    results.textContent="Search needs an internet connection. "+error.message;
+  }
+}
+
+document.getElementById("search").addEventListener("keydown",e=>{
+  if(e.key==="Enter")searchPlace();
+});
+
+/* GPS */
+function locateMe(){
+  if(!navigator.geolocation){
+    alert("Your browser does not support GPS.");
+    return;
+  }
+  setStatus("Finding your location…");
+  navigator.geolocation.getCurrentPosition(position=>{
+    currentPosition=[position.coords.latitude,position.coords.longitude];
+    showUserPosition(currentPosition);
+    document.getElementById("locationText").textContent=
+      currentPosition[0].toFixed(5)+", "+currentPosition[1].toFixed(5);
+    setStatus("Your location found");
+  },error=>{
+    setStatus("Could not get GPS location");
+    alert("Location unavailable. Allow location permission and try again.");
+  },{enableHighAccuracy:true,timeout:15000,maximumAge:5000});
+}
+
+function showUserPosition(coords){
+  if(userMarker)map.removeLayer(userMarker);
+  userMarker=L.marker(coords).addTo(map).bindPopup("You are here").openPopup();
+  map.setView(coords,16);
+}
+
+async function shareLocation(){
+  if(!currentPosition){
+    if(!navigator.geolocation){alert("GPS is not supported.");return}
+    navigator.geolocation.getCurrentPosition(async p=>{
+      currentPosition=[p.coords.latitude,p.coords.longitude];
+      showUserPosition(currentPosition);
+      document.getElementById("locationText").textContent=
+        currentPosition[0].toFixed(5)+", "+currentPosition[1].toFixed(5);
+      await shareLocation();
+    },()=>alert("Allow location access first."),{enableHighAccuracy:true});
+    return;
+  }
+  const url="https://www.google.com/maps?q="+currentPosition[0]+","+currentPosition[1];
+  if(navigator.share){
+    try{await navigator.share({title:"My location",text:"Here is my location:",url})}
+    catch(e){}
+  }else{
+    try{
+      await navigator.clipboard.writeText(url);
+      alert("Location link copied!");
+    }catch(e){prompt("Copy this location link:",url)}
+  }
+}
+
+/* Directions */
+async function getDirections(){
+  const destination=document.getElementById("destination").value.trim();
+  if(!destination)return alert("Enter your destination.");
+  if(!currentPosition){
+    alert("Tap Locate me first.");
+    return;
+  }
+  const info=document.getElementById("routeInfo");
+  info.textContent="Finding destination…";
+  try{
+    const searchUrl="https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ph&q="+encodeURIComponent(destination);
+    const searchResponse=await fetch(searchUrl);
+    if(!searchResponse.ok)throw new Error("Place search failed");
+    const places=await searchResponse.json();
+    if(!places.length)throw new Error("Destination not found");
+    const end=[Number(places[0].lon),Number(places[0].lat)];
+    const start=[currentPosition[1],currentPosition[0]];
+    const mode=document.getElementById("travelMode").value;
+    const profile=mode==="walking"?"foot":"driving";
+    const routeUrl=`https://router.project-osrm.org/route/v1/${profile}/${start[0]},${start[1]};${end[0]},${end[1]}?overview=full&geometries=geojson`;
+    const routeResponse=await fetch(routeUrl);
+    if(!routeResponse.ok)throw new Error("Directions unavailable");
+    const routeData=await routeResponse.json();
+    if(!routeData.routes||!routeData.routes.length)throw new Error("No route found");
+    const route=routeData.routes[0];
+    if(routeLine)map.removeLayer(routeLine);
+    routeLine=L.geoJSON(route.geometry,{style:{color:"#1685e8",weight:6}}).addTo(map);
+    map.fitBounds(routeLine.getBounds(),{padding:[30,30]});
+    info.textContent="Distance: "+(route.distance/1000).toFixed(2)+" km · Estimated time: "+Math.round(route.duration/60)+" min. Actual time may vary.";
+  }catch(error){
+    info.textContent="Could not get directions. Check your internet or try another destination. "+error.message;
+  }
+}
+
+function clearRoute(){
+  if(routeLine){map.removeLayer(routeLine);routeLine=null}
+  document.getElementById("routeInfo").textContent="Route cleared.";
+}
+
+/* Walking tracker */
+function startWalk(){
+  if(walking)return;
+  if(!navigator.geolocation)return alert("GPS is not supported by your browser.");
+  walking=true;
+  walkPoints=[];
+  stepCount=0;
+  lastMotion=0;
+  lastStepTime=0;
+  document.getElementById("steps").textContent="0";
+  document.getElementById("distance").textContent="0 m";
+  document.getElementById("walkStatus").textContent="Walking tracker is running…";
+  if(walkLine){map.removeLayer(walkLine);walkLine=null}
+  if(reverseLine){map.removeLayer(reverseLine);reverseLine=null}
+
+  watchId=navigator.geolocation.watchPosition(position=>{
+    const point=[position.coords.latitude,position.coords.longitude];
+    currentPosition=point;
+    walkPoints.push(point);
+    if(walkPoints.length>1500)walkPoints.shift();
+    if(walkLine)map.removeLayer(walkLine);
+    if(walkPoints.length>1){
+      walkLine=L.polyline(walkPoints,{color:"#16845b",weight:5}).addTo(map);
+    }
+    updateWalkStats();
+    document.getElementById("walkStatus").textContent="Recording GPS route…";
+  },error=>{
+    document.getElementById("walkStatus").textContent="GPS signal lost or permission denied.";
+  },{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+
+  if("DeviceMotionEvent" in window){
+    if(typeof DeviceMotionEvent.requestPermission==="function"){
+      DeviceMotionEvent.requestPermission().then(result=>{
+        if(result==="granted")window.addEventListener("devicemotion",countSteps);
+      }).catch(()=>{});
+    }else{
+      window.addEventListener("devicemotion",countSteps);
+    }
+  }
+}
+
+function countSteps(event){
+  if(!walking||!event.accelerationIncludingGravity)return;
+  const a=event.accelerationIncludingGravity;
+  const magnitude=Math.sqrt((a.x||0)**2+(a.y||0)**2+(a.z||0)**2);
+  const now=Date.now();
+  if(lastMotion && Math.abs(magnitude-lastMotion)>2.2 && now-lastStepTime>300){
+    stepCount++;
+    lastStepTime=now;
+    document.getElementById("steps").textContent=stepCount;
+  }
+  lastMotion=magnitude;
+}
+
+function updateWalkStats(){
+  let meters=0;
+  for(let i=1;i<walkPoints.length;i++){
+    meters+=distanceBetween(walkPoints[i-1],walkPoints[i]);
+  }
+  document.getElementById("distance").textContent=
+    meters>=1000?(meters/1000).toFixed(2)+" km":Math.round(meters)+" m";
+}
+
+function distanceBetween(a,b){
+  const rad=x=>x*Math.PI/180;
+  const R=6371000;
+  const dLat=rad(b[0]-a[0]),dLon=rad(b[1]-a[1]);
+  const x=Math.sin(dLat/2)**2+
+    Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLon/2)**2;
+  return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+
+function stopWalk(){
+  if(!walking)return;
+  walking=false;
+  if(watchId!==null)navigator.geolocation.clearWatch(watchId);
+  watchId=null;
+  window.removeEventListener("devicemotion",countSteps);
+  if(walkPoints.length>1){
+    const walks=JSON.parse(localStorage.getItem("lakbayWalks")||"[]");
+    walks.unshift({
+      date:new Date().toLocaleString(),
+      points:walkPoints,
+      steps:stepCount
+    });
+    localStorage.setItem("lakbayWalks",JSON.stringify(walks.slice(0,20)));
+  }
+  document.getElementById("walkStatus").textContent="Walk saved on this device.";
+  showHistory();
+}
+
+function clearWalk(){
+  if(walking)stopWalk();
+  walkPoints=[];
+  stepCount=0;
+  document.getElementById("steps").textContent="0";
+  document.getElementById("distance").textContent="0 m";
+  if(walkLine){map.removeLayer(walkLine);walkLine=null}
+  if(reverseLine){map.removeLayer(reverseLine);reverseLine=null}
+  document.getElementById("walkStatus").textContent="Tracker reset.";
+}
+
+function showReverseRoute(){
+  if(walkPoints.length<2)return alert("Record a walk first.");
+  if(reverseLine)map.removeLayer(reverseLine);
+  reverseLine=L.polyline([...walkPoints].reverse(),{
+    color:"#e34b4b",weight:5,dashArray:"8 8"
+  }).addTo(map);
+  map.fitBounds(reverseLine.getBounds(),{padding:[25,25]});
+  document.getElementById("walkStatus").textContent=
+    "Reverse route displayed. Follow the recorded path back.";
+}
+
+function showHistory(){
+  const history=document.getElementById("history");
+  const walks=JSON.parse(localStorage.getItem("lakbayWalks")||"[]");
+  if(!walks.length){history.textContent="No saved walks yet.";return}
+  history.innerHTML="";
+  walks.forEach((walk,index)=>{
+    const row=document.createElement("div");
+    row.className="result";
+    const title=document.createElement("strong");
+    title.textContent=walk.date;
+    const details=document.createElement("div");
+    details.textContent=walk.steps+" estimated steps · "+walk.points.length+" GPS points";
+    const view=document.createElement("button");
+    view.className="secondary";
+    view.style.marginTop="6px";
+    view.textContent="View route";
+    view.onclick=()=>{
+      if(walkLine)map.removeLayer(walkLine);
+      walkLine=L.polyline(walk.points,{color:"#16845b",weight:5}).addTo(map);
+      map.fitBounds(walkLine.getBounds(),{padding:[25,25]});
+    };
+    row.append(title,details,view);
+    history.appendChild(row);
+  });
+}
+
+/* Offline transportation guidance */
+function answerQuestion(){
+  const answers={
+    jeep:"Check the jeepney's route sign and ask the driver or conductor if it passes your destination. Tell the driver where you want to get off. Keep small bills or coins ready.",
+    bus:"Check the bus destination sign and ask about the route and fare before boarding. Follow terminal and seat-belt instructions.",
+    tricycle:"Agree on the destination and fare before the ride. Ask whether the fare is per passenger or for the whole tricycle.",
+    fare:"Fares change by route, operator and local rules. Ask the driver or conductor, check official transport announcements, and confirm before boarding.",
+    safety:"Keep your belongings secure, use well-lit pickup points, share your trip with someone you trust, and verify the vehicle and driver before boarding.",
+    commute:"Check your starting point and destination, identify possible jeepney, bus or tricycle routes, ask locals to confirm current stops, and allow extra travel time."
+  };
+  document.getElementById("answer").textContent=answers[document.getElementById("question").value];
+}
+
+showHistory();
+
+/* Register app-shell service worker */
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
